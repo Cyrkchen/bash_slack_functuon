@@ -1,0 +1,53 @@
+
+slack_message() {
+# $1 webhook URL , example "https://hooks.slack.com/services/xxxxxxxxx/yyyyyyyy/zzzzzzzzzzzzzzzzzzzzzzz"
+# $2 slack channel name , example "#mychannel"
+# $3 body of message , show on slack
+# $4 SLACK_NOTIFY_ATTACHMENTS_MESSAGE as "ERROR","WARNING","SUCCESS" or empty
+   local URL_CHECK=`echo $1|awk '{print match($0,"https")}'`
+   local CHANNEL_CHECK=`echo $2|awk '{print match($0,"#")}'`
+   local SLACK_USERNAME="\"username\":\"MySlack\""
+   if [ $URL_CHECK -gt 0 ] && [ $CHANNEL_CHECK -gt 0 ]; then
+      local SLACK_NOTIFY_URL=$1
+      local SLACK_NOTIFY_CHANNEL=$2
+      local SLACK_MESSAGE_COLOR_GREEN="#5cb85c"
+      local SLACK_MESSAGE_COLOR_RED="#d9534f"
+      local SLACK_MESSAGE_COLOR_YELLOW="#f0ad4e"
+      local SLACK_NOTIFY_MESSAGE=${3//\"/}
+      local SLACK_NOTIFY_COLOR=$4
+      local SLACK_MESSAGE_COLOR=""
+
+      if [ "$SLACK_NOTIFY_COLOR" == "ERROR" ]; then
+         SLACK_MESSAGE_COLOR=$SLACK_MESSAGE_COLOR_RED
+      elif [ "$SLACK_NOTIFY_COLOR" == "WARNING" ]; then
+         SLACK_MESSAGE_COLOR=$SLACK_MESSAGE_COLOR_YELLOW
+      elif [ "$SLACK_NOTIFY_COLOR" == "SUCCESS" ]; then
+         SLACK_MESSAGE_COLOR=$SLACK_MESSAGE_COLOR_GREEN
+      fi
+
+      local SLACK_AVATAR="\"icon_url\":\"https://avatars3.githubusercontent.com/u/1695193?s=140\""
+      local SLACK_CHANNEL_NAME="\"channel\": \"$SLACK_NOTIFY_CHANNEL\""
+      local SLACK_MESSAGE="\"text\": \"$SLACK_NOTIFY_MESSAGE\""
+      local SLACK_ATTACHMENTS="\"attachments\":[{\"text\": \"$SLACK_NOTIFY_MESSAGE\",\"color\":\"${SLACK_MESSAGE_COLOR}\"}]"
+      local SLACK_json="${SLACK_CHANNEL_NAME},
+                  ${SLACK_USERNAME}, 
+                  ${SLACK_AVATAR}"
+
+      if [ $SLACK_MESSAGE_COLOR ]; then
+         SLACK_json="{${SLACK_json},${SLACK_ATTACHMENTS}}"
+      else
+         SLACK_json="{${SLACK_json},${SLACK_MESSAGE}}"
+      fi 
+
+      for i in $(seq 1 3);do
+         local SLACK_RESULT=`curl -s --connect-timeout 3 --max-time 5 -d "payload=$SLACK_json" "$SLACK_NOTIFY_URL" -w "%{http_code}"`
+         if [ "$SLACK_RESULT" == "ok200" ]; then
+            echo "Sent message to slack"
+            break
+         fi
+         sleep 3
+      done
+   else
+      echo "Wrong slack webhook URL or channel name..."
+   fi
+}
